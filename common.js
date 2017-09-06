@@ -10,14 +10,6 @@ class DialogProtocol extends EventEmitter {
     super();
     this.socket = socket;
     this._subscribe();
-
-    this.on('encrypted', (msg) => {
-      this._write(msg);
-    });
-
-    this.on('decrypted', (msg) => {
-      this.emit('message', msg.toString('utf8'));
-    })
   }
 
   sendMessage(msg) {
@@ -35,7 +27,11 @@ class DialogProtocol extends EventEmitter {
       } else msg += data;
 
       if (msg.length === sizeMsg) {
-        this._decrypt(msg.toString('utf8'));
+        this._decrypt(msg.toString('utf8'))
+          .then((msg) => {
+            this.emit('message', msg);
+          })
+          .catch(err => console.log(err));
         sizeMsg = 0;
         msg = '';
       }
@@ -43,36 +39,46 @@ class DialogProtocol extends EventEmitter {
   }
 
   _encrypt(msg) {
-    const stream = ReadableString(msg, { encoding: 'utf8'})
-      .pipe(rot13());
-    let message = '';
-    stream.on('readable', () => {
-      let buffer;
-      while (buffer = stream.read()) message += buffer;
+    return new Promise((resolve, reject) => {
+      const stream = ReadableString(msg, { encoding: 'utf8'})
+        .pipe(rot13());
+      let message = '';
+      stream.on('readable', () => {
+        let buffer;
+        while (buffer = stream.read()) message += buffer;
+      })
+      stream.on('end', () => {
+        resolve(message);
+      })
     })
-    stream.on('end', () => {
-      this.emit('encrypted', message);
-    })
+
   }
 
   _decrypt(msg) {
-    const stream = ReadableString(msg, { encoding: 'utf8'})
-      .pipe(rot13())
-    let message = '';
-    stream.on('readable', () => {
-      let buffer;
-      while (buffer = stream.read()) message += buffer;
-    })
-    stream.on('end', () => {
-      this.emit('decrypted', message);
-    })
+    return new Promise((resolve, reject) => {
+      const stream = ReadableString(msg, { encoding: 'utf8'})
+        .pipe(rot13())
+      let message = '';
+      stream.on('readable', () => {
+        let buffer;
+        while (buffer = stream.read()) message += buffer;
+      })
+      stream.on('end', () => {
+        resolve(message);
+      })
+    });
+
   }
 
-  _write(msg) {
-    const bufferSize = Buffer.allocUnsafe(INT32_BYTES_LENGTH );
-    bufferSize.writeInt32BE(Buffer.byteLength(msg, 'utf8'));
-    this.socket.write(bufferSize);
-    this.socket.write(msg);
+  sendMessage(msg) {
+    this._encrypt(msg)
+      .then((msg) => {
+        const bufferSize = Buffer.allocUnsafe(INT32_BYTES_LENGTH );
+        bufferSize.writeInt32BE(Buffer.byteLength(msg, 'utf8'));
+        this.socket.write(bufferSize);
+        this.socket.write(msg);
+      })
+      .catch(err => console.log(err));
   }
 }
 
