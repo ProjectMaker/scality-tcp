@@ -12,10 +12,6 @@ class DialogProtocol extends EventEmitter {
     this._subscribe();
   }
 
-  sendMessage(msg) {
-    this._encrypt(msg);
-  }
-
   _subscribe() {
     let msg = '';
     let sizeMsg = 0;
