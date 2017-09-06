@@ -10,5 +10,9 @@
     "start:client": "node client.js"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "readable-string": "1.0.1",
+    "rot13-transform": "1.0.0"
+  }
 }
